@@ -38,6 +38,8 @@ import org.eclipse.aether.collection.CollectResult;
 import org.eclipse.aether.collection.DependencyCollectionException;
 import org.eclipse.aether.graph.*;
 import org.eclipse.aether.impl.DefaultServiceLocator;
+import org.eclipse.aether.repository.Authentication;
+import org.eclipse.aether.repository.AuthenticationSelector;
 import org.eclipse.aether.repository.LocalRepository;
 import org.eclipse.aether.repository.Proxy;
 import org.eclipse.aether.repository.ProxySelector;
@@ -138,13 +140,25 @@ public class DependencyManager {
             RepositoryPolicy snapshotPolicy = allowSnapshots ? makeSnapshotPolicy(r) : new RepositoryPolicy(false, null, null);
 
             RemoteRepository repo = createRepo(r, releasePolicy, snapshotPolicy);
-            ProxySelector selector = getSession().getProxySelector();
-            Proxy proxy = selector.getProxy(repo);
+            final RemoteRepository.Builder repoBuilder = new RemoteRepository.Builder(repo);
+
+            final ProxySelector proxySelector = getSession().getProxySelector();
+            final Proxy proxy = proxySelector.getProxy(repo);
             if (proxy != null) {
                 if (isLogging(LOG_DEBUG))
                     log(LOG_DEBUG, String.format("Setting proxy: '%s' for dependency: %s", proxy, repo));
-                repo = new RemoteRepository.Builder(repo).setProxy(proxy).build();
+                repoBuilder.setProxy(proxy);
             }
+
+            final AuthenticationSelector authenticationSelector = getSession().getAuthenticationSelector();
+            final Authentication authentication = authenticationSelector.getAuthentication(repo);
+            if (authentication != null) {
+                if (isLogging(LOG_DEBUG))
+                    log(LOG_DEBUG, String.format("Setting authentication for dependency: %s", repo));
+                repoBuilder.setAuthentication(authentication);
+            }
+
+            repo = repoBuilder.build();
 
             if (!rs.contains(repo))
                 rs.add(repo);
